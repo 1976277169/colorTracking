@@ -211,6 +211,15 @@ void processVideo(char* videoFilename)
 			ballInCup = 2;
 			//cout << "The green cup" << endl;
 		}
+		else if (lastBallLoc.x < (blueCup.x + blueCup.width) && (lastBallLoc.x + lastBallLoc.width) > blueCup.x &&
+			lastBallLoc.y < (blueCup.y + blueCup.height) && (lastBallLoc.y + lastBallLoc.height) > blueCup.y &&
+			ballInCup == 0)
+		{
+			rectangle(orig, blueCup.tl(), blueCup.br(), color, 2, 8, 0);
+			lastBallLoc = blueCup;
+			ballInCup = 3;
+			//cout << "The green cup" << endl;
+		}
 		//Check for ball outside
 		else if (lastBallLoc.x < (ball.x + ball.width) && (lastBallLoc.x + lastBallLoc.width) > ball.x &&
 			lastBallLoc.y < (ball.y + ball.height) && (lastBallLoc.y + lastBallLoc.height) > ball.y)
@@ -225,7 +234,8 @@ void processVideo(char* videoFilename)
 			rectangle(orig, redCup.tl(), redCup.br(), color, 2, 8, 0);
 		else if (ballInCup == 2)
 			rectangle(orig, greenCup.tl(), greenCup.br(), color, 2, 8, 0);
-
+		else if (ballInCup == 3)
+			rectangle(orig, blueCup.tl(), blueCup.br(), color, 2, 8, 0);
 
 
 		//Display
@@ -233,6 +243,7 @@ void processVideo(char* videoFilename)
 		imshow("RED", redMask);
 		imshow("Orange", orangeMask);
 		imshow("green", greenMask);
+		imshow("blue", blueMask);
 	keyboard = waitKey(30);
 	}
 
@@ -244,7 +255,7 @@ int main(int argc, char** argv)
 {
 
 	//Detect red cup
-	processVideo("2-cups/2-2.avi");
+	processVideo("3-cups/3-1.avi");
 
 
 	waitKey(0); // Wait for a keystroke in the window
