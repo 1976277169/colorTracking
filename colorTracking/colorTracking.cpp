@@ -10,6 +10,13 @@
 using namespace cv;
 using namespace std;
 
+/*
+* Function: colorSpaceMapping
+* Usage:  colorSpaceMapping(iamge, r, g);
+* ----------------------------------------
+* Converts an image to a smaller colorspace and 
+* returns the color space data
+*/
 void colorSpaceMapping(Mat& image, Mat& r, Mat& g)
 {
 	vector<Mat> rgb(3);
@@ -35,7 +42,13 @@ void colorSpaceMapping(Mat& image, Mat& r, Mat& g)
 
 	return;
 }
-
+/*
+* Function: getRanges
+* Usage:  getRanges(iamge, r_range, g_range);
+* ----------------------------------------
+* Converts an image to a smaller colorspace and returns the 
+* range the image is in.
+*/
 void getRanges(Mat& image, double r_range[2], double g_range[2])
 {
 	Mat rRed, gRed;
@@ -52,7 +65,13 @@ void getRanges(Mat& image, double r_range[2], double g_range[2])
 	g_range[0] = gmin + adjustment2;
 	g_range[1] = gmax - adjustment2;
 }
-
+/*
+* Function: detectColor
+* Usage:  detectColor(iamge, mask, ref);
+* ----------------------------------------
+* Converts the image into a smaller colorspace and creates
+* a mask using <code>ref</code>
+*/
 void detectColor(Mat& image, Mat& mask, Mat& ref)
 {
 	//Mapping to new color space for ranges to detect on
@@ -66,7 +85,12 @@ void detectColor(Mat& image, Mat& mask, Mat& ref)
 	mask = ((g>g_range[0]) & (g<g_range[1]) &(r>r_range[0]) & (r<r_range[1]));
 	return;
 }
-
+/*
+* Function: mergeMask
+* Usage:  mergeMask(mask);
+* ----------------------------------------
+* Uses mathematical morphology to merge detections
+*/
 void mergeMask(Mat& mask)
 {
 	int type = MORPH_ELLIPSE;
@@ -85,7 +109,12 @@ void mergeMask(Mat& mask)
 
 	//morphologyEx(mask, mask, MORPH_DILATE, element2, Point(-1, -1), 1);
 }
-
+/*
+* Function: getLargestBox
+* Usage:  biggestBox = getLargestBox(boxes);
+* ----------------------------------------
+* Returns the biggest box in an array of Rects
+*/
 Rect getLargestBox(vector<Rect> boxes)
 {
 	RNG rng(12345);
@@ -100,7 +129,12 @@ Rect getLargestBox(vector<Rect> boxes)
 	//cout << "area " << biggestBox.area() << endl;
 	return biggestBox;
 }
-
+/*
+* Function: processVideo
+* Usage:  processVideo(videoFilename);
+* ----------------------------------------
+* Processes the video <code>videoFilename</code>
+*/
 void processVideo(char* videoFilename)
 {
 	//Read and display
@@ -189,7 +223,7 @@ void processVideo(char* videoFilename)
 		}
 		//cout << lastBallLoc << endl;
 
-		//NOTE: Jumps from Red to Green for some reason: because if a false detection on the ball!
+		//NOTE: Jumps from Red to Green for some reason: because of a false detection on the ball!
 		//Check if ball is in a cup
 		RNG rng(12345);
 		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
@@ -255,7 +289,7 @@ int main(int argc, char** argv)
 {
 
 	//Detect red cup
-	processVideo("3-cups/3-1.avi");
+	processVideo("3-cups/3-3.avi");
 
 
 	waitKey(0); // Wait for a keystroke in the window
