@@ -45,8 +45,8 @@ void getRanges(Mat& image, double r_range[2], double g_range[2])
 	minMaxLoc(rRed, &rmin, &rmax);
 	minMaxLoc(gRed, &gmin, &gmax);
 
-	double adjustment1 = (rmax - rmin)*.30;
-	double adjustment2 = (gmax - gmin)*.30;
+	double adjustment1 = (rmax - rmin)*.4;
+	double adjustment2 = (gmax - gmin)*.4;
 	r_range[0] = rmin + adjustment1;
 	r_range[1] = rmax - adjustment1;
 	g_range[0] = gmin + adjustment2;
@@ -59,7 +59,7 @@ void detectColor(Mat& image, Mat& mask, Mat& ref)
 	double r_range[2] = { 0, 0 };
 	double g_range[2] = { 0, 0 };
 	getRanges(ref, r_range, g_range);
-	cout << r_range[0] << r_range[1] << endl;
+	//cout << r_range[0] << r_range[1] << endl;
 
 	Mat r, g;
 	colorSpaceMapping(image, r, g);
@@ -69,15 +69,21 @@ void detectColor(Mat& image, Mat& mask, Mat& ref)
 
 void mergeMask(Mat& mask)
 {
-	int type = MORPH_RECT;
+	int type = MORPH_ELLIPSE;
 	int size = 2;
 	Mat element = getStructuringElement(type,
 		Size(2 * size + 1, 2 * size + 1),
 		Point(size, size));
+	int size2 = 4;
+	Mat element2 = getStructuringElement(type,
+		Size(2 * size2 + 1, 2 * size2 + 1),
+		Point(size2, size2));
+	morphologyEx(mask, mask, MORPH_DILATE, element2, Point(-1, -1), 1);
+	morphologyEx(mask, mask, MORPH_CLOSE, element, Point(-1, -1), 1);
 	morphologyEx(mask, mask, MORPH_OPEN, element, Point(-1, -1), 1);
-	morphologyEx(mask, mask, MORPH_CLOSE, element, Point(-1, -1), 3);
 
-	morphologyEx(mask, mask, MORPH_DILATE, element, Point(-1, -1), 3);
+
+	//morphologyEx(mask, mask, MORPH_DILATE, element2, Point(-1, -1), 1);
 }
 
 Rect getLargestBox(vector<Rect> boxes)
@@ -86,10 +92,12 @@ Rect getLargestBox(vector<Rect> boxes)
 	Rect biggestBox(0, 0, 0, 0);
 	for (int i = 0; i < boxes.size(); i++)
 	{
-		if (boxes[i].area() > biggestBox.area())
+		int area = boxes[i].area();
+		//cout << "area " <<area << endl;
+		if (area > biggestBox.area() && area > 300)
 			biggestBox = boxes[i];
 	}
-
+	cout << "area " << biggestBox.area() << endl;
 	return biggestBox;
 }
 
@@ -97,14 +105,12 @@ void processVideo(char* videoFilename)
 {
 	//Read and display
 	Mat red = imread("training/red.png", CV_LOAD_IMAGE_COLOR);
-	cout << red.channels() << endl;
-	displayImg(red, "RED");
 	Mat green = imread("training/green.png", CV_LOAD_IMAGE_COLOR);
-	displayImg(green, "GREEN");
 	Mat blue = imread("training/blue.png", CV_LOAD_IMAGE_COLOR);
-	displayImg(blue, "BLUE");
 	Mat orange = imread("training/orange.png", CV_LOAD_IMAGE_COLOR);
-	displayImg(orange, "ORANGE");
+	GaussianBlur(red, red, Size(3, 3), 1, 1);
+	GaussianBlur(green, green, Size(3, 3), 1, 1);
+	GaussianBlur(orange, orange, Size(3, 3), 1, 1);
 
 	//Getting the VideoCapture object
 	VideoCapture capture(videoFilename);
@@ -134,7 +140,7 @@ void processVideo(char* videoFilename)
 		}
 
 		//Enhance the frame
-		GaussianBlur(orig,orig,Size(3,3),1,1);
+		GaussianBlur(orig,orig,Size(5,5),2,2);
 
 		//Detect Red cup
 		Mat redMask;
@@ -147,9 +153,18 @@ void processVideo(char* videoFilename)
 		detectColor(orig, greenMask, green);
 
 		//Clean up the mask
-		mergeMask(orangeMask);
+		//mergeMask(orangeMask);
 		mergeMask(greenMask);
 		mergeMask(redMask);
+		
+		int size2 = 2;
+		Mat element2 = getStructuringElement(MORPH_ELLIPSE,
+			Size(2 , 2 ));
+		Mat element3 = getStructuringElement(MORPH_ELLIPSE,
+			Size(7, 7));
+		morphologyEx(orangeMask, orangeMask, MORPH_OPEN, element2, Point(-1, -1), 1);
+		morphologyEx(orangeMask, orangeMask, MORPH_DILATE, element3, Point(-1, -1), 3);
+		//mergeMask(orangeMask);
 
 		//Add bounding boxes
 		vector<Rect> boxesO = addBoundingBox(orig, orangeMask, false);
@@ -165,9 +180,9 @@ void processVideo(char* videoFilename)
 		{
 			lastBallLoc = ball;
 		}
-		cout << lastBallLoc << endl;
+		//cout << lastBallLoc << endl;
 
-		//NOTE: Jumps from Red to Green for some reason
+		//NOTE: Jumps from Red to Green for some reason: because if a false detection on the ball!
 		//Check if ball is in a cup
 		RNG rng(12345);
 		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
@@ -178,7 +193,7 @@ void processVideo(char* videoFilename)
 			rectangle(orig, redCup.tl(), redCup.br(), color, 2, 8, 0);
 			lastBallLoc = redCup;
 			ballInCup = 1;
-			cout << "The red cup" << endl;
+			//cout << "The red cup" << endl;
 		}
 		else if (lastBallLoc.x < (greenCup.x + greenCup.width) && (lastBallLoc.x + lastBallLoc.width) > greenCup.x &&
 			lastBallLoc.y < (greenCup.y + greenCup.height) && (lastBallLoc.y + lastBallLoc.height) > greenCup.y &&
@@ -187,7 +202,7 @@ void processVideo(char* videoFilename)
 			rectangle(orig, greenCup.tl(), greenCup.br(), color, 2, 8, 0);
 			lastBallLoc = greenCup;
 			ballInCup = 2;
-			cout << "The green cup" << endl;
+			//cout << "The green cup" << endl;
 		}
 		//Check for ball outside
 		else if (lastBallLoc.x < (ball.x + ball.width) && (lastBallLoc.x + lastBallLoc.width) > ball.x &&
@@ -196,7 +211,7 @@ void processVideo(char* videoFilename)
 			ballInCup = 0;
 			rectangle(orig, ball.tl(), ball.br(), color, 2, 8, 0);
 			lastBallLoc = ball;
-			cout << "The ball" << endl;
+			//cout << "The ball" << endl;
 		}
 
 		if (ballInCup == 1)
