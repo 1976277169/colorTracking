@@ -45,8 +45,8 @@ void getRanges(Mat& image, double r_range[2], double g_range[2])
 	minMaxLoc(rRed, &rmin, &rmax);
 	minMaxLoc(gRed, &gmin, &gmax);
 
-	double adjustment1 = (rmax - rmin)*.25;
-	double adjustment2 = (gmax - gmin)*.25;
+	double adjustment1 = (rmax - rmin)*.30;
+	double adjustment2 = (gmax - gmin)*.30;
 	r_range[0] = rmin + adjustment1;
 	r_range[1] = rmax - adjustment1;
 	g_range[0] = gmin + adjustment2;
@@ -65,6 +65,32 @@ void detectColor(Mat& image, Mat& mask, Mat& ref)
 	colorSpaceMapping(image, r, g);
 	mask = ((g>g_range[0]) & (g<g_range[1]) &(r>r_range[0]) & (r<r_range[1]));
 	return;
+}
+
+void mergeMask(Mat& mask)
+{
+	int type = MORPH_RECT;
+	int size = 2;
+	Mat element = getStructuringElement(type,
+		Size(2 * size + 1, 2 * size + 1),
+		Point(size, size));
+	morphologyEx(mask, mask, MORPH_OPEN, element, Point(-1, -1), 1);
+	morphologyEx(mask, mask, MORPH_CLOSE, element, Point(-1, -1), 3);
+
+	morphologyEx(mask, mask, MORPH_DILATE, element, Point(-1, -1), 3);
+}
+
+Rect getLargestBox(vector<Rect> boxes)
+{
+	RNG rng(12345);
+	Rect biggestBox(0, 0, 0, 0);
+	for (int i = 0; i < boxes.size(); i++)
+	{
+		if (boxes[i].area() > biggestBox.area())
+			biggestBox = boxes[i];
+	}
+
+	return biggestBox;
 }
 
 void processVideo(char* videoFilename)
@@ -91,7 +117,8 @@ void processVideo(char* videoFilename)
 	//read input data and process
 	int keyboard = 0;
 	Mat orig;
-	
+	Rect lastBallLoc(0, 0, 0, 0);
+	int ballInCup = 0;
 	while ((char)keyboard != 'q' && (char)keyboard != 27)
 	{
 		if (keyboard == 'p')
@@ -106,6 +133,8 @@ void processVideo(char* videoFilename)
 			exit(EXIT_FAILURE);
 		}
 
+		//Enhance the frame
+		GaussianBlur(orig,orig,Size(3,3),1,1);
 
 		//Detect Red cup
 		Mat redMask;
@@ -116,6 +145,66 @@ void processVideo(char* videoFilename)
 
 		Mat greenMask;
 		detectColor(orig, greenMask, green);
+
+		//Clean up the mask
+		mergeMask(orangeMask);
+		mergeMask(greenMask);
+		mergeMask(redMask);
+
+		//Add bounding boxes
+		vector<Rect> boxesO = addBoundingBox(orig, orangeMask, false);
+		vector<Rect> boxesR = addBoundingBox(orig, redMask, false);
+		vector<Rect> boxesG = addBoundingBox(orig, greenMask, false);
+
+		//Keep large box only and draw
+		Rect redCup = getLargestBox(boxesR);
+		Rect ball = getLargestBox(boxesO);
+		Rect greenCup = getLargestBox(boxesG);
+
+		if (ball != Rect(0, 0, 0, 0))
+		{
+			lastBallLoc = ball;
+		}
+		cout << lastBallLoc << endl;
+
+		//NOTE: Jumps from Red to Green for some reason
+		//Check if ball is in a cup
+		RNG rng(12345);
+		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+		if (lastBallLoc.x < (redCup.x + redCup.width) && (lastBallLoc.x + lastBallLoc.width) > redCup.x &&
+			lastBallLoc.y < (redCup.y + redCup.height) && (lastBallLoc.y + lastBallLoc.height) > redCup.y &&
+			ballInCup == 0)
+		{
+			rectangle(orig, redCup.tl(), redCup.br(), color, 2, 8, 0);
+			lastBallLoc = redCup;
+			ballInCup = 1;
+			cout << "The red cup" << endl;
+		}
+		else if (lastBallLoc.x < (greenCup.x + greenCup.width) && (lastBallLoc.x + lastBallLoc.width) > greenCup.x &&
+			lastBallLoc.y < (greenCup.y + greenCup.height) && (lastBallLoc.y + lastBallLoc.height) > greenCup.y &&
+			ballInCup == 0)
+		{
+			rectangle(orig, greenCup.tl(), greenCup.br(), color, 2, 8, 0);
+			lastBallLoc = greenCup;
+			ballInCup = 2;
+			cout << "The green cup" << endl;
+		}
+		//Check for ball outside
+		else if (lastBallLoc.x < (ball.x + ball.width) && (lastBallLoc.x + lastBallLoc.width) > ball.x &&
+			lastBallLoc.y < (ball.y + ball.height) && (lastBallLoc.y + lastBallLoc.height) > ball.y)
+		{
+			ballInCup = 0;
+			rectangle(orig, ball.tl(), ball.br(), color, 2, 8, 0);
+			lastBallLoc = ball;
+			cout << "The ball" << endl;
+		}
+
+		if (ballInCup == 1)
+			rectangle(orig, redCup.tl(), redCup.br(), color, 2, 8, 0);
+		else if (ballInCup == 2)
+			rectangle(orig, greenCup.tl(), greenCup.br(), color, 2, 8, 0);
+
+
 
 		//Display
 		imshow("Frame", orig);
