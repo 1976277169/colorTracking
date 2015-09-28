@@ -17,7 +17,7 @@ void colorSpaceMapping(Mat& image, Mat& r, Mat& g)
 
 	Mat I = rgb[0] + rgb[1] + rgb[2];
 	I.convertTo(I, CV_32F);
-	cout << I.depth() << endl;
+	//cout << I.depth() << endl;
 
 	for (int i = 0; i < I.rows; i++)
 	{
@@ -79,8 +79,8 @@ void mergeMask(Mat& mask)
 		Size(2 * size2 + 1, 2 * size2 + 1),
 		Point(size2, size2));
 	morphologyEx(mask, mask, MORPH_DILATE, element2, Point(-1, -1), 1);
-	morphologyEx(mask, mask, MORPH_CLOSE, element, Point(-1, -1), 1);
-	morphologyEx(mask, mask, MORPH_OPEN, element, Point(-1, -1), 1);
+	//morphologyEx(mask, mask, MORPH_CLOSE, element, Point(-1, -1), 1);
+	//morphologyEx(mask, mask, MORPH_OPEN, element, Point(-1, -1), 1);
 
 
 	//morphologyEx(mask, mask, MORPH_DILATE, element2, Point(-1, -1), 1);
@@ -97,7 +97,7 @@ Rect getLargestBox(vector<Rect> boxes)
 		if (area > biggestBox.area() && area > 300)
 			biggestBox = boxes[i];
 	}
-	cout << "area " << biggestBox.area() << endl;
+	//cout << "area " << biggestBox.area() << endl;
 	return biggestBox;
 }
 
@@ -111,6 +111,7 @@ void processVideo(char* videoFilename)
 	GaussianBlur(red, red, Size(3, 3), 1, 1);
 	GaussianBlur(green, green, Size(3, 3), 1, 1);
 	GaussianBlur(orange, orange, Size(3, 3), 1, 1);
+	GaussianBlur(blue, blue, Size(3, 3), 1, 1);
 
 	//Getting the VideoCapture object
 	VideoCapture capture(videoFilename);
@@ -152,11 +153,15 @@ void processVideo(char* videoFilename)
 		Mat greenMask;
 		detectColor(orig, greenMask, green);
 
-		//Clean up the mask
-		//mergeMask(orangeMask);
+		Mat blueMask;
+		detectColor(orig, blueMask, blue);
+
+		//Clean up the mask for cups
 		mergeMask(greenMask);
 		mergeMask(redMask);
+		mergeMask(blueMask);
 		
+		//Clean up the mask for the ball
 		int size2 = 2;
 		Mat element2 = getStructuringElement(MORPH_ELLIPSE,
 			Size(2 , 2 ));
@@ -164,17 +169,19 @@ void processVideo(char* videoFilename)
 			Size(7, 7));
 		morphologyEx(orangeMask, orangeMask, MORPH_OPEN, element2, Point(-1, -1), 1);
 		morphologyEx(orangeMask, orangeMask, MORPH_DILATE, element3, Point(-1, -1), 3);
-		//mergeMask(orangeMask);
+	
 
 		//Add bounding boxes
 		vector<Rect> boxesO = addBoundingBox(orig, orangeMask, false);
 		vector<Rect> boxesR = addBoundingBox(orig, redMask, false);
 		vector<Rect> boxesG = addBoundingBox(orig, greenMask, false);
+		vector<Rect> boxesB = addBoundingBox(orig, blueMask, false);
 
 		//Keep large box only and draw
 		Rect redCup = getLargestBox(boxesR);
 		Rect ball = getLargestBox(boxesO);
 		Rect greenCup = getLargestBox(boxesG);
+		Rect blueCup = getLargestBox(boxesB);
 
 		if (ball != Rect(0, 0, 0, 0))
 		{
@@ -237,7 +244,7 @@ int main(int argc, char** argv)
 {
 
 	//Detect red cup
-	processVideo("2-cups/2-1.avi");
+	processVideo("2-cups/2-2.avi");
 
 
 	waitKey(0); // Wait for a keystroke in the window
